@@ -1,0 +1,12 @@
+# The file backend. Each value is a tokenHash or certFingerprint (SHA-256
+# hex) that `basicstation-gate issue` prints; nothing here is a secret.
+# Reread on change: deleting a line revokes it, and a connected gateway is
+# dropped at its next recheck (RECHECK_SECONDS).
+
+cupsUri: https://localhost:3001     # sent to a station whose cups.uri differs
+tcUri: wss://localhost:3001         # sent to a station whose tc.uri differs
+
+gateways: {}
+#  0123456789abcdef:
+#    cups: [<hash>]
+#    tc: [<hash>]

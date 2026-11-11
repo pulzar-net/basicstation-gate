@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "basicstation-gate"
+version = "0.1.0"
+description = "A LoRa Basics Station front door (token and certificate auth, revocation) and CUPS server, for ChirpStack and other LNSs"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Joseph Telaak", email = "joseph@pulzr.net" }]
+requires-python = ">=3.10"
+keywords = ["lorawan", "basics-station", "cups", "chirpstack", "lns"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Networking",
+]
+# The wire format (basicstation_gate.cups) needs nothing; the services need these.
+dependencies = []
+
+[project.optional-dependencies]
+server = ["aiohttp>=3.9", "cryptography>=42", "PyYAML>=6"]
+test = ["basicstation-gate[server]", "pytest>=8"]
+
+[project.scripts]
+basicstation-gate = "basicstation_gate.__main__:main"
+
+[project.urls]
+Source = "https://github.com/pulzar-net/basicstation-gate"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

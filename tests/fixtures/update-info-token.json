@@ -1,0 +1,18 @@
+{
+  "eui": "0123456789abcdef",
+  "station": "2.0.6(linux/testsim) 2026-11-11 09:10:22",
+  "request": {
+    "router": "123:4567:89ab:cdef",
+    "cupsUri": "https://localhost:56438",
+    "tcUri": "wss://localhost:56438",
+    "cupsCredCrc": 889750429,
+    "tcCredCrc": 1820588110,
+    "station": "2.0.6(linux/testsim) 2026-11-11 09:10:22",
+    "model": "linux",
+    "package": "v0",
+    "keys": [
+      49883104
+    ]
+  },
+  "deliveredTcCrc": 1820588110
+}

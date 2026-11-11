@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e '.[test]'
+      - run: pytest
+
+  # The real LoRa Basics Station 2.0.6 against the gate: tests/test_station.py.
+  station:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: build/station/bin
+          key: station-${{ runner.os }}-${{ hashFiles('scripts/build-station.sh') }}
+      - name: Build Basics Station
+        run: test -x build/station/bin/station || scripts/build-station.sh
+      - run: pip install -e '.[test]'
+      # -rs and the binary check: a skip here would be a silent pass.
+      - run: build/station/bin/station --version && pytest -v -rs tests/test_station.py
+
+  # The image, built and not pushed, run as examples/compose.yaml runs it, with
+  # the real station in front and ChirpStack Gateway Bridge behind.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t basicstation-gate:dev .
+      - uses: actions/cache@v4
+        with:
+          path: build/station/bin
+          key: station-${{ runner.os }}-${{ hashFiles('scripts/build-station.sh') }}
+      - name: Build Basics Station
+        run: test -x build/station/bin/station || scripts/build-station.sh
+      - run: scripts/compose-e2e.sh

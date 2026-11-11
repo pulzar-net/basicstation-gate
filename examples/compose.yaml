@@ -1,0 +1,91 @@
+# A small deployment: the file backend, development keys, and ChirpStack
+# Gateway Bridge behind the gate. Gateways reach https/wss://<host>:3001.
+#
+#   docker compose -f examples/compose.yaml up -d
+#   docker compose -f examples/compose.yaml exec signer \
+#       basicstation-gate issue 0123456789abcdef --out /state/bundles/0123456789abcdef
+#   # paste the printed lines into gateways/gateways.yaml; copy the bundle
+#   # out with `docker compose cp signer:/state/bundles/0123456789abcdef .`
+#
+# For production replace DEV_STATE_DIR with CLIENT_CA_*_FILE and
+# CUPS_TRUST_FILE / TC_TRUST_FILE, and the TLS files with your certificate.
+
+x-image: &image
+  image: basicstation-gate:dev
+  build: ..
+
+services:
+  signer:
+    <<: *image
+    command: signer
+    environment:
+      DEV_STATE_DIR: /state
+      DEV_HOSTNAME: localhost
+      SIGNER_LISTEN: 0.0.0.0:5810
+      SIGNER_TOKEN_FILE: /run/secrets/signer_token
+      PUBLIC_CUPS_URI: https://localhost:3001
+      PUBLIC_LNS_URI: wss://localhost:3001
+    volumes:
+      - state:/state
+    secrets: [signer_token]
+    networks: [internal]          # no published port, no route out needed
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5810/health')"]
+      interval: 5s
+
+  public:
+    <<: *image
+    command: public
+    depends_on:
+      signer: { condition: service_healthy }
+    environment:
+      SERVE: lns,cups
+      PUBLIC_LNS_URI: wss://localhost:3001
+      PUBLIC_CUPS_URI: https://localhost:3001
+      BRIDGE_URL: ws://bridge:3001
+      SIGNER_URL: http://signer:5810
+      SIGNER_TOKEN_FILE: /run/secrets/signer_token
+      BACKEND: file
+      GATEWAYS_FILE: /etc/basicstation-gate/gateways.yaml
+      TLS_CERT_FILE: /tls/server.pem
+      TLS_KEY_FILE: /tls/server.key
+      CLIENT_CA_FILE: /tls/client-ca.pem
+    ports: ["3001:3001"]
+    volumes:
+      # Only the public half of the signer's state: never ca.key.
+      - type: volume
+        source: state
+        target: /tls
+        read_only: true
+        volume: { subpath: public }
+      # The directory, not the file: an editor that saves by replacing the file
+      # would leave a single-file mount on the old copy, and a deleted line
+      # would never revoke anything.
+      - ${GATEWAYS_DIR:-./gateways}:/etc/basicstation-gate:ro
+    secrets: [signer_token]
+    networks: [internal, default]
+
+  bridge:
+    image: chirpstack/chirpstack-gateway-bridge:4.1.2
+    command: -c /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml
+    volumes:
+      - ./chirpstack-gateway-bridge.toml:/etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge.toml:ro
+    depends_on: [mosquitto]
+    networks: [internal]
+
+  # Stands in for your broker; point the bridge at yours instead.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    command: mosquitto -c /mosquitto-no-auth.conf
+    networks: [internal]
+
+secrets:
+  signer_token:
+    file: ./signer_token          # 16+ random characters: openssl rand -hex 32 > signer_token
+
+volumes:
+  state:
+
+networks:
+  internal:
+    internal: true
