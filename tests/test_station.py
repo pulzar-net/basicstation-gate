@@ -226,8 +226,14 @@ async def run(tmp_path, monkeypatch, kind):
                     print((tmp_path / 'station.log').read_text()[-6000:])
                     raise
                 finally:
+                    # The station can sit on SIGTERM for seconds (seen on CI
+                    # runners); by now the scenario has passed or failed.
                     station.terminate()
-                    station.wait(5)
+                    try:
+                        station.wait(5)
+                    except subprocess.TimeoutExpired:
+                        station.kill()
+                        station.wait()
                     log.close()
     return record, raw_requests
 
